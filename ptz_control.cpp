@@ -3,64 +3,82 @@
 //
 
 #include "ptz_control.h"
-const unsigned char  PtzControl::common_feedback_[] = {0x90, 0x41, 0xFF, 0x90, 0x51, 0xFF};
-const unsigned char  PtzControl::zoom_in_[] = {0x81, 0x01, 0x04, 0x07, 0x02, 0xFF};
-const unsigned char  PtzControl::zoom_out_[] = {0x81, 0x01, 0x04, 0x07, 0x03, 0xFF};
-const unsigned char  PtzControl::zoom_stop_[] = {0x81, 0x01, 0x04, 0x07, 0x00, 0xFF};
-const unsigned char  PtzControl::zoom_in_speed_[] = {0x81, 0x01, 0x04, 0x07, 0x20, 0xFF};
-const unsigned char  PtzControl::zoom_out_speed_[] = {0x81, 0x01, 0x04, 0x07, 0x30, 0xFF};
-const unsigned char  PtzControl::power_on_[] = {0x81, 0x01, 0x04, 0x00, 0x02, 0xFF};
-const unsigned char  PtzControl::power_down_[] = {0x81, 0x01, 0x04, 0x00, 0x03, 0xFF};
-const unsigned char  PtzControl::inquire_zoom_[] = {0x81, 0x09, 0x04, 0x47, 0xFF};
-const unsigned char  PtzControl::zoom_in_focus_[] = {0x81, 0x01, 0x04, 0x08, 0x02, 0xFF};
-const unsigned char  PtzControl::zoom_out_focus_[]{0x81, 0x01, 0x04, 0x08, 0x03, 0xFF};
+uint8_t PtzControl::CalcCheckSum(uint8_t address) {
+  return address + command1_.value + command2_.value + pan_speed_ + tilt_speed_;
+}
 
-bool compare(const unsigned char *str1, const unsigned char *str2, const int size) {
-  for (int i = 0; i < size; ++i) {
-    if (*(str1 + i) != *(str2 + i)) {
-      return false;
-    }
+void PtzControl::SendCommand(uint8_t address) {
+  uint8_t buf[7];
+  buf[0] = start_flag_;
+  buf[1] = address;
+  buf[2] = command1_.value;
+  buf[3] = command2_.value;
+  buf[4] = pan_speed_;
+  buf[5] = tilt_speed_;
+  buf[6] = CalcCheckSum(address);
+  Write((char *) buf, 7);
+}
+
+void PtzControl::SetPanSpeed(uint8_t speed) {
+  if (speed > 0x3F) {
+    perror("Error: speed should be lower than 0x3F\n");
+    return;
   }
-  return true;
+  pan_speed_ = speed;
 }
 
-bool PtzControl::Feedback() {
-  char buf[6];
-  int len;
-  do {
-    len = 0;
-    len = Read(buf, 1, 10);
-  } while (len == 0 || buf[0] != 0x90);
-  len = Read(&buf[1], sizeof(buf) - 1, 100);
-  if (len == sizeof(buf) - 1) {
-    if (compare((unsigned char *) buf, common_feedback_, sizeof(common_feedback_))) {
-      printf("Command has been received\n");
-      return true;
-    }
+void PtzControl::SetTiltSpeed(uint8_t speed) {
+  if (speed > 0x3F) {
+    perror("Error: speed should be lower than 0x3F\n");
+    return;
   }
-  return false;
+  tilt_speed_ = speed;
 }
 
-bool PtzControl::PowerOn() {
-  char *data = (char *) power_on_;
-  Write(data, sizeof(power_on_));
-  return Feedback();
+void PtzControl::Stop(uint8_t address) {
+  command1_.value = 0;
+  command2_.value = 0;
+  pan_speed_ = 0;
+  tilt_speed_ = 0;
+  SendCommand(address);
 }
 
-bool PtzControl::PowerDown() {
-  char *data = (char *) power_down_;
-  Write(data, sizeof(power_down_));
-  return Feedback();
-}
-
-bool PtzControl::ZoomInFocus() {
-  char *data = (char *) zoom_in_focus_;
-  Write(data, sizeof(zoom_in_focus_));
-  return Feedback();
-}
-
-bool PtzControl::ZoomOutFocus() {
-  char *data = (char *) zoom_out_focus_;
-  Write(data, sizeof(zoom_out_focus_));
-  return Feedback();
+void PtzControl::Action(uint8_t address, enum Motion motion, enum Focus focus, enum Iris iris) {
+  command1_.value = 0;
+  command2_.value = 0;
+  switch (motion) {
+    case kUP: command2_.data.index3 = 1;
+      break;
+    case kDown: command2_.data.index4 = 1;
+      break;
+    case kLeft: command2_.data.index2 = 1;
+      break;
+    case kRight:command2_.data.index1 = 1;
+      break;
+    case kLeftDown: command2_.data.index2 = 1;
+      command2_.data.index4 = 1;
+      break;
+    case kLeftUp:command2_.data.index2 = 1;
+      command2_.data.index3 = 1;
+      break;
+    case kRightDown: command2_.data.index1 = 1;
+      command2_.data.index4 = 1;
+      break;
+    case kRightUp:command2_.data.index1 = 1;
+      command2_.data.index3 = 1;
+      break;
+  }
+  switch (focus) {
+    case kFocusNear:command1_.data.index0 = 1;
+      break;
+    case kFocusFar:command2_.data.index7 = 1;
+      break;
+  }
+  switch (iris) {
+    case kIrisClose:command1_.data.index2 = 1;
+      break;
+    case kIrisOpen:command1_.data.index1 = 1;
+      break;
+  }
+  SendCommand(address);
 }

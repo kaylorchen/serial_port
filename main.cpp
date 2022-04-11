@@ -1,28 +1,21 @@
 #include <iostream>
 #include <cstring>
-#include "serial_port.h"
+#include <unistd.h>
+#include "ptz_control.h"
 
 int main() {
   std::cout << "time = " << TimeStamp::now() << std::endl;
-  SerialPort serial_port;
-  if (serial_port.Open("/dev/ttyUSB0", 115200, 8, SerialPort::PARITY_NONE, 1) != SerialPort::OK){
+  PtzControl ptz_control;
+  if (ptz_control.Open("/dev/ttyUSB0", 9600, 8, SerialPort::PARITY_NONE, 1) != SerialPort::OK){
     std::cout << "Can not open serial port" << std::endl;
     return -1;
   }
-  const char *str = "This is a test.\n";
-  serial_port.Write(str, strlen(str));
-  char buf[1024];
-  int len = serial_port.Read(buf, sizeof (buf), 100);
-  buf[len]=0;
-  printf("recv(len=%d): %s\n",len,buf);
-  //测试write和int read(char* buf,int maxLen,const char* end,int timeout,int* recvLen);
-  const char *output="hello\r\nMy name is kaylor\r\nI like programming~\r\n";
-  serial_port.Write(output,strlen(output));
-  while(serial_port.Read(buf,sizeof(buf),"\r\n",100,&len)==SerialPort::READ_END)
-  {
-    buf[len]=0;
-    printf("recv line(len=%d): %s\n",len,buf);
-  }
+  ptz_control.SetTiltSpeed(0x24);
+  ptz_control.SetPanSpeed(0x24);
+//  ptz_control.Action(1, PtzControl::kRight,PtzControl::kFocusNothing, PtzControl::kIrisNothing);
+  ptz_control.Action(1, PtzControl::kDown, PtzControl::kFocusNothing, PtzControl::kIrisNothing);
+  usleep(1000000*5);
+  ptz_control.Stop();
   std::cout << "exit" << std::endl;
   return 0;
 }

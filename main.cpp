@@ -12,8 +12,8 @@ int main() {
   }
   ptz_control.SetTiltSpeed(0x24);
   ptz_control.SetPanSpeed(0x24);
-//  ptz_control.Action(1, PtzControl::kRight,PtzControl::kFocusNothing, PtzControl::kIrisNothing);
-  ptz_control.Action(1, PtzControl::kDown, PtzControl::kFocusNothing, PtzControl::kIrisNothing);
+  
+  ptz_control.Action(1, PtzControl::kRightUp, PtzControl::kFocusNothing, PtzControl::kIrisClose);
   usleep(1000000*5);
   ptz_control.Stop();
   std::cout << "exit" << std::endl;

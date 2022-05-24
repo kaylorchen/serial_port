@@ -112,7 +112,9 @@ int SerialPort::Close() {
 
 int SerialPort::Write(const char *data, int len) {
   SetTxMode();
-  int ret = ::write(fd_, data, len);
+  //because RS485 hardware issue, receiver's the first bytes is wrong 
+  int ret;
+  ret = ::write(fd_, data, len);
   SetRxMode();
   return ret;
 }
@@ -200,10 +202,12 @@ bool SerialPort::EndsWith(const char *str, int strLen, const char *end, int endL
 }
 
 void SerialPort::SetRxMode(void){
+  usleep(1000*10);
   ioctl(fd_, TIOCMBIS, &RTS_flag_);
   ioctl(fd_, TIOCMBIS, &DTR_flag_);
 }
 void SerialPort::SetTxMode(void){
   ioctl(fd_, TIOCMBIC, &RTS_flag_);
   ioctl(fd_, TIOCMBIC, &DTR_flag_);
+  usleep(1000*10);
 }
